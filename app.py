@@ -6,28 +6,21 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from mlxtend.frequent_patterns import fpgrowth, association_rules
 
-# Configuration de la page
 st.set_page_config(page_title="Analyse Client", layout="wide")
 st.title("Application d'analyse e-commerce")
 
-# Sidebar pour charger les données
+# Sidebar
 st.sidebar.header("Chargement des données")
 uploaded_file = st.sidebar.file_uploader("Uploader un fichier CSV ou Excel", type=["csv", "xlsx"])
 
-# Fonction pour charger les données de manière sécurisée
 @st.cache_data
 def load_data(file):
     try:
-        df = pd.read_csv(file, encoding='utf-8', header=0)
+        df = pd.read_csv(file, encoding='utf-8')
     except UnicodeDecodeError:
-        df = pd.read_csv(file, encoding='latin1', header=0)
-
-    # Nettoyage des noms de colonnes
-    df.columns = df.columns.str.strip()
-    df.columns = df.columns.str.replace(" ", "_")
+        df = pd.read_csv(file, encoding='latin1')
     return df
 
-# Statistiques descriptives
 def show_descriptive_stats(df):
     st.subheader("Statistiques descriptives")
     st.write(df.describe())
@@ -35,83 +28,62 @@ def show_descriptive_stats(df):
     for col in df.select_dtypes(include='number').columns:
         fig, ax = plt.subplots()
         sns.histplot(df[col], kde=True, ax=ax)
-        ax.set_title(f'Distribution de {col}')
         st.pyplot(fig)
 
-# Analyse FP-Growth
 def apply_fp_growth(df):
     st.subheader("Analyse par FP-Growth")
-
-    required_columns = {'InvoiceNo', 'Description', 'Quantity'}
-    if not required_columns.issubset(df.columns):
-        st.error(f"Colonnes requises manquantes : {required_columns - set(df.columns)}")
+    # Vérifier que les colonnes requises existent
+    required_cols = ['InvoiceNo', 'Description', 'Quantity']
+    if not all(col in df.columns for col in required_cols):
+        st.error(f"Colonnes requises manquantes : {', '.join(required_cols)}")
         return
-
     basket = df.groupby(['InvoiceNo', 'Description'])['Quantity'].sum().unstack().fillna(0)
     basket = basket.applymap(lambda x: 1 if x > 0 else 0)
+    freq_items = fpgrowth(basket, min_support=0.02, use_colnames=True)
+    rules = association_rules(freq_items, metric="lift", min_threshold=1)
+    st.write("Règles générées :")
+    st.dataframe(rules[['antecedents', 'consequents', 'support', 'confidence', 'lift']])
 
-    try:
-        freq_items = fpgrowth(basket, min_support=0.02, use_colnames=True)
-        rules = association_rules(freq_items, metric="lift", min_threshold=1)
-        st.write("Règles générées :")
-        st.dataframe(rules[['antecedents', 'consequents', 'support', 'confidence', 'lift']])
-    except Exception as e:
-        st.error(f"Erreur pendant le calcul FP-Growth : {e}")
-
-# K-means clustering
 def apply_kmeans(df):
     st.subheader("Segmentation par K-means")
     k = st.slider("Choisissez le nombre de clusters", 2, 10, 4)
     features = df.select_dtypes(include='number')
-
-    if features.shape[1] < 2:
-        st.error("Au moins deux colonnes numériques sont requises pour K-means.")
+    if features.empty:
+        st.warning("Aucune donnée numérique disponible pour K-means.")
         return
-
     X_scaled = StandardScaler().fit_transform(features)
-    model = KMeans(n_clusters=k, random_state=42, n_init=10)
+    model = KMeans(n_clusters=k, random_state=42)
     df['Cluster'] = model.fit_predict(X_scaled)
     st.write("Extrait des clusters :")
     st.dataframe(df.head())
 
     fig, ax = plt.subplots()
     sns.scatterplot(x=X_scaled[:, 0], y=X_scaled[:, 1], hue=df['Cluster'], palette='Set2')
-    ax.set_xlabel(features.columns[0])
-    ax.set_ylabel(features.columns[1])
     st.pyplot(fig)
 
-# RFM analysis
 def apply_rfm(df):
     st.subheader("Segmentation RFM")
-
-    required_columns = {'Recence', 'Frequence', 'Montant'}
-    if not required_columns.issubset(df.columns):
-        st.error(f"Colonnes RFM manquantes : {required_columns - set(df.columns)}")
+    # Vérifier colonnes nécessaires pour RFM
+    required_cols = ['Recence', 'Frequence', 'Montant']
+    if not all(col in df.columns for col in required_cols):
+        st.error(f"Colonnes requises manquantes : {', '.join(required_cols)}")
         return
-
     rfm = df[['Recence', 'Frequence', 'Montant']].copy()
     rfm['R'] = pd.qcut(rfm['Recence'], 4, labels=[4,3,2,1])
     rfm['F'] = pd.qcut(rfm['Frequence'], 4, labels=[1,2,3,4])
     rfm['M'] = pd.qcut(rfm['Montant'], 4, labels=[1,2,3,4])
     rfm['RFM_Score'] = rfm[['R','F','M']].astype(int).sum(axis=1)
-
     st.dataframe(rfm.head())
-
     fig, ax = plt.subplots()
     sns.histplot(rfm['RFM_Score'], bins=10, kde=True)
-    ax.set_title("Distribution des scores RFM")
     st.pyplot(fig)
 
-# Main logic
 if uploaded_file:
     df = load_data(uploaded_file)
     st.write("Aperçu des données :")
     st.dataframe(df.head())
-    st.write("Colonnes détectées :", df.columns.tolist())
 
-    model_choice = st.sidebar.selectbox("Choisir une analyse", [
-        "Statistiques descriptives", "FP-Growth", "K-means", "RFM"
-    ])
+    model_choice = st.sidebar.selectbox("Choisir une analyse", ["Statistiques descriptives", "FP-Growth", "K-means", "RFM"])
 
     if model_choice == "Statistiques descriptives":
         show_descriptive_stats(df)
