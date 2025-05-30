@@ -15,11 +15,7 @@ uploaded_file = st.sidebar.file_uploader("Uploader un fichier CSV ou Excel", typ
 
 @st.cache_data
 def load_data(file):
-    if file.name.endswith('.csv'):
-        return pd.read_csv(file)
-    else:
-        return pd.read_excel(file)
-
+    return pd.read_csv(file)
 def show_descriptive_stats(df):
     st.subheader("Statistiques descriptives")
     st.write(df.describe())
