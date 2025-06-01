@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
 import mlxtend
+import squarify      
 from mlxtend.frequent_patterns import fpgrowth, association_rules
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
