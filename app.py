@@ -32,7 +32,11 @@ def load_data(uploaded_file):
     """Charge les données depuis un fichier uploadé"""
     try:
         if uploaded_file.name.endswith('.csv'):
-            df = pd.read_csv(uploaded_file, encoding="ISO-8859-1")
+            # Essayer différents encodages
+            try:
+                df = pd.read_csv(uploaded_file, encoding="ISO-8859-1")
+            except:
+                df = pd.read_csv(uploaded_file, encoding="utf-8")
         elif uploaded_file.name.endswith(('.xls', '.xlsx')):
             df = pd.read_excel(uploaded_file)
         else:
@@ -60,16 +64,22 @@ def clean_data(df):
     # Suppression des valeurs manquantes restantes
     df = df.dropna()
     
-    # CORRECTION: Conversion de la date avec gestion des erreurs et précision à la seconde
+    # SOLUTION DEFINITIVE POUR LES DATES
     if 'InvoiceDate' in df.columns:
-        # Conversion en datetime avec gestion des erreurs
-        df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'], errors='coerce')
+        # Convertir en string puis en datetime
+        df['InvoiceDate'] = df['InvoiceDate'].astype(str)
+        df['InvoiceDate'] = pd.to_datetime(
+            df['InvoiceDate'], 
+            errors='coerce',
+            infer_datetime_format=True
+        )
         
-        # Suppression des lignes avec dates invalides
+        # Supprimer les dates invalides
         df = df.dropna(subset=['InvoiceDate'])
         
-        # Conversion en format datetime sans nanosecondes
-        df['InvoiceDate'] = df['InvoiceDate'].astype('datetime64[s]')
+        # Convertir en timestamp UNIX (plus stable)
+        df['InvoiceDate'] = df['InvoiceDate'].astype('int64') // 10**9
+        df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'], unit='s')
     
     # Réinitialiser les index
     df.reset_index(drop=True, inplace=True)
@@ -327,6 +337,10 @@ def perform_kmeans_analysis(df):
     
     # Préparation des données RFM
     if 'InvoiceDate' in df.columns and 'InvoiceNo' in df.columns and 'Montant' in df.columns:
+        # Convertir InvoiceDate en datetime si nécessaire
+        if not pd.api.types.is_datetime64_any_dtype(df['InvoiceDate']):
+            df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
+            
         date_ref = df['InvoiceDate'].max() + timedelta(days=1)
         rfm = df.groupby('CustomerID').agg({
             'InvoiceDate': lambda x: (date_ref - x.max()).days,
@@ -644,6 +658,10 @@ def perform_rfm_analysis(df):
     if missing_cols:
         st.error(f"Colonnes manquantes pour l'analyse RFM: {', '.join(missing_cols)}")
         return
+    
+    # Convertir InvoiceDate en datetime si nécessaire
+    if 'InvoiceDate' in df.columns and not pd.api.types.is_datetime64_any_dtype(df['InvoiceDate']):
+        df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
     
     # Calcul RFM
     date_ref = df['InvoiceDate'].max() + timedelta(days=1)
