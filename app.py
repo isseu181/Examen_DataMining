@@ -6,7 +6,6 @@ import seaborn as sns
 from datetime import datetime, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
-import squarify
 import mlxtend
 from mlxtend.frequent_patterns import fpgrowth, association_rules
 from sklearn.preprocessing import StandardScaler
