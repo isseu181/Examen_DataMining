@@ -46,7 +46,7 @@ def load_data(uploaded_file):
         return None
 
 def clean_data(df):
-    """Nettoie les données"""
+    """Nettoie les données et corrige les problèmes de format"""
     # Suppression des lignes entièrement vides
     df = df.dropna(how='all')
     
@@ -57,19 +57,31 @@ def clean_data(df):
     if 'CustomerID' in df.columns:
         df = df[~df['CustomerID'].isna()]
     
-    # Suppression des valeurs manquantes restantes
-    df = df.dropna()
-    
     # Conversion de la date si présente
     if 'InvoiceDate' in df.columns:
-        df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
+        df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'], errors='coerce')
     
-    # Réinitialiser les index
-    df.reset_index(drop=True, inplace=True)
+    # Correction des colonnes problématiques
+    if 'Valeur' in df.columns:
+        # Conversion des pourcentages en valeurs numériques
+        if df['Valeur'].dtype == object and df['Valeur'].astype(str).str.contains('%').any():
+            df['Valeur'] = df['Valeur'].astype(str).str.rstrip('%').astype(float) / 100.0
+        elif not pd.api.types.is_numeric_dtype(df['Valeur']):
+            df['Valeur'] = pd.to_numeric(df['Valeur'], errors='coerce')
+    
+    if 'Type' in df.columns and df['Type'].dtype == object:
+        # Conversion en type catégoriel pour éviter les problèmes Arrow
+        df['Type'] = df['Type'].astype('category')
+    
+    # Suppression des valeurs manquantes restantes
+    df = df.dropna()
     
     # Ajout du montant total si possible
     if 'Quantity' in df.columns and 'UnitPrice' in df.columns:
         df['Montant'] = df['Quantity'] * df['UnitPrice']
+    
+    # Réinitialiser les index
+    df.reset_index(drop=True, inplace=True)
     
     return df
 
@@ -483,7 +495,8 @@ def perform_kmeans_analysis(df):
                 return sample_df
 
             def prepare_data(df):
-                df['Montant'] = df['Quantity'] * df['UnitPrice']
+                if 'Montant' not in df.columns and 'Quantity' in df.columns and 'UnitPrice' in df.columns:
+                    df['Montant'] = df['Quantity'] * df['UnitPrice']
                 derniere_date = df['InvoiceDate'].max() + timedelta(days=1)
                 
                 rfm = df.groupby('CustomerID').agg({
@@ -624,10 +637,13 @@ def perform_kmeans_analysis(df):
 def perform_rfm_analysis(df):
     """Effectue l'analyse RFM"""
     # Vérification des colonnes nécessaires
-    required_cols = ['CustomerID', 'InvoiceDate', 'InvoiceNo', 'Montant']
+    required_cols = ['CustomerID', 'InvoiceDate', 'InvoiceNo']
+    
+    # Calcul du montant si nécessaire
     if 'Montant' not in df.columns:
         if 'Quantity' in df.columns and 'UnitPrice' in df.columns:
             df['Montant'] = df['Quantity'] * df['UnitPrice']
+            required_cols.append('Montant')
         else:
             st.error("Impossible de calculer le montant: colonnes manquantes")
             return
