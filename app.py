@@ -729,7 +729,7 @@ def perform_kmeans_analysis(df):
                 
                 # Tableau des scores
                 results_df = pd.DataFrame({
-                    'Période': [f"B{i}" for i in range(1, len(st.session_state.ARI_scores)+1],
+                    'Période': [f"B{i}" for i in range(1, len(st.session_state.ARI_scores)+1)],
                     'Score ARI': st.session_state.ARI_scores
                 })
                 safe_display_dataframe(results_df)
