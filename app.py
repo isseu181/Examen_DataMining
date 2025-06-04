@@ -200,8 +200,13 @@ def show_descriptive_stats(df):
             
         with col2:
             st.write("**Statistiques Numériques**")
-            # Filtrer uniquement les colonnes numériques
+            # Filtrer uniquement les colonnes numériques et exclure CustomerID
             num_cols = df.select_dtypes(include=np.number).columns
+            
+            # CORRECTION: Exclure CustomerID des statistiques numériques
+            if 'CustomerID' in num_cols:
+                num_cols = num_cols.drop('CustomerID')
+            
             if not num_cols.empty:
                 safe_display_dataframe(df[num_cols].describe())
             else:
