@@ -372,8 +372,8 @@ def perform_fpgrowth_analysis(df):
             basket = basket.loc[:, ~basket.columns.isin([np.nan, None, ''])]
             
             # Limiter aux colonnes les plus fréquentes si trop nombreuses
-            if len(basket.columns) > 100:
-                st.warning("Trop de produits ({}). Utilisation des 100 plus fréquents.".format(len(basket.columns)))
+            if len(basket.columns) > 10:
+                st.warning("Trop de produits ({}). Utilisation des 10 plus fréquents.".format(len(basket.columns)))
                 top_products = basket.sum().sort_values(ascending=False).head(100).index
                 basket = basket[top_products]
         except Exception as e:
