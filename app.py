@@ -3,10 +3,9 @@ from PIL import Image
 import requests
 from io import BytesIO
 
-# Configuration de la page (DOIT ÊTRE LA PREMIÈRE COMMANDE)
+# Configuration de la page 
 st.set_page_config(
     page_title="Analyse e-commerce",
-    page_icon="🛒",
     layout="wide",
     initial_sidebar_state="expanded"
 )
