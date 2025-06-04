@@ -1,4 +1,7 @@
 import streamlit as st
+from PIL import Image
+import requests
+from io import BytesIO
 
 # Configuration de la page (DOIT ÊTRE LA PREMIÈRE COMMANDE)
 st.set_page_config(
@@ -960,13 +963,43 @@ def perform_rfm_analysis(df):
 
 # Interface principale
 def main():
+    # Chargement de l'image d'accueil
+    image_url = "https://images.pexels.com/photos/669615/pexels-photo-669615.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
+    
+    # Guide d'utilisation dans la barre latérale
+    st.sidebar.header("📚 Guide d'Utilisation")
+    with st.sidebar.expander("Comment utiliser cette application"):
+        st.markdown("""
+        ### Étapes d'utilisation :
+        1. **Charger les données** : Utilisez le sélecteur de fichiers pour uploader vos données transactionnelles
+        2. **Nettoyer les données** : Cliquez sur 'Nettoyer les données' dans l'onglet Statistiques
+        3. **Explorer les données** : Consultez les statistiques descriptives après nettoyage
+        4. **Analyser les données** :
+           - **FP-Growth** : Découvrir les associations entre produits
+           - **K-means** : Segmenter les clients avec analyse de stabilité
+           - **RFM** : Segmenter clients par Récence, Fréquence, Montant
+        
+        ### Format de données recommandé :
+        Les données doivent contenir au minimum ces colonnes :
+        - `CustomerID` : Identifiant unique client
+        - `InvoiceNo` : Numéro de facture
+        - `InvoiceDate` : Date de la transaction
+        - `Description` : Description du produit
+        - `Quantity` : Quantité achetée
+        - `UnitPrice` : Prix unitaire
+        
+        ### Conseils :
+        - Les fichiers CSV sont préférables aux Excel
+        - La taille maximale recommandée est de 100 Mo
+        -
+        
+        ### Fonctionnalités avancées :
+        - Contrat de maintenance pour le clustering K-means
+        - Export des résultats au format CSV
+        - Visualisations interactives avec Plotly
+        """)
+    
     st.title("🛒 Plateforme d'Analyse e-commerce")
-    st.markdown("""
-    Cette application permet d'analyser les données clients d'un site e-commerce à l'aide de trois approches:
-    - **Règles d'association (FP-Growth)**: Découvrir quels produits sont fréquemment achetés ensemble
-    - **Segmentation (K-means)**: Grouper les clients en clusters similaires
-    - **Analyse RFM**: Segmenter les clients basé sur la Récence, Fréquence et Montant des achats
-    """)
     
     # Chargement des données
     st.sidebar.header("Chargement des Données")
@@ -1032,7 +1065,41 @@ def main():
                 else:
                     st.info("Veuillez d'abord nettoyer les données dans l'onglet Statistiques")
     else:
-        st.info("Veuillez uploader un fichier de données pour commencer l'analyse")
+        # Page d'accueil avec image
+        st.markdown("""
+        <style>
+        .big-font {
+            font-size:20px !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        ## Bienvenue dans la plateforme d'analyse e-commerce !
+        Cette application permet d'analyser les données clients d'un site e-commerce à l'aide de trois approches:
+        - **Règles d'association (FP-Growth)**: Découvrir quels produits sont fréquemment achetés ensemble
+        - **Segmentation (K-means)**: Grouper les clients en clusters similaires
+        - **Analyse RFM**: Segmenter les clients basé sur la Récence, Fréquence et Montant des achats
+        """)
+        
+        # Chargement et affichage de l'image
+        try:
+            response = requests.get(image_url)
+            img = Image.open(BytesIO(response.content))
+            st.image(img, caption="Plateforme d'analyse e-commerce", use_column_width=True)
+        except:
+            st.warning("Impossible de charger l'image d'accueil")
+        
+        st.markdown("""
+        ### Pour commencer :
+        1. Utilisez le panneau latéral gauche pour uploader vos données
+        2. Consultez le guide d'utilisation pour plus d'informations
+        3. Explorez les différentes analyses disponibles
+        
+        <div class="big-font">
+        ⬅️ <strong>Commencez par uploader vos données dans la barre latérale !</strong>
+        </div>
+        """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
