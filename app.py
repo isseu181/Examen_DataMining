@@ -990,7 +990,7 @@ def main():
         
         ### Conseils :
         - Les fichiers CSV sont préférables aux Excel
-        - La taille maximale recommandée est de 100 Mo
+        - La taille maximale recommandée est de 200 Mo
         -
         
         ### Fonctionnalités avancées :
@@ -1086,7 +1086,7 @@ def main():
         try:
             response = requests.get(image_url)
             img = Image.open(BytesIO(response.content))
-            st.image(img, caption="Plateforme d'analyse e-commerce", use_column_width=True)
+            st.image(img, caption="Plateforme d'analyse e-commerce", use_container_width=True)
         except:
             st.warning("Impossible de charger l'image d'accueil")
         
