@@ -16,6 +16,20 @@ from sklearn.decomposition import PCA
 from sklearn import metrics
 import warnings
 
+ # Injection du script de gestion d'erreurs (doit être en premier)
+st.components.v1.html("""
+<script>
+window.onerror = function(message, source, lineno, colno, error) {
+  if (message.includes('removeChild') || 
+      message.includes('NotFoundError') ||
+      message.includes('nœud à supprimer')) {
+    console.warn("[Streamlit] Erreur DOM ignorée:", message);
+    return true;
+  }
+  return false;
+};
+</script>
+""", height=0)
 # Ignorer les warnings
 warnings.filterwarnings("ignore")
 
