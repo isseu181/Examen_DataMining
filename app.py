@@ -1029,7 +1029,7 @@ def main():
         3. Explorez les différentes analyses disponibles
         
         <div class="big-font">
-        ⬅️ <strong>Commencez par uploader vos données dans la barre latérale !</strong>
+        ⬅️ <strong>Commencez par télécharger vos données dans la barre latérale !</strong>
         </div>
         """, unsafe_allow_html=True)
 
