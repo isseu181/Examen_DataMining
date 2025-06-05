@@ -786,29 +786,6 @@ def perform_kmeans_analysis(df):
                     """, unsafe_allow_html=True)
                 else:
                     st.warning("Aucun score ARI disponible")
-                
-                # Plan de maintenance
-                st.markdown("""
-                ### Plan de Maintenance Proposé
-                
-                | Activité                         | Fréquence       | Responsable       |
-                |----------------------------------|-----------------|-------------------|
-                | Surveillance du score ARI        | Hebdomadaire    | Data Scientist    |
-                | Analyse de la stabilité          | Mensuelle       | Data Scientist    |
-                | Réévaluation du modèle           | Trimestrielle   | Équipe Analytics  |
-                | Réentraînement du modèle         | Selon besoin    | Équipe Analytics  |
-                | Rapport de performance           | Trimestriel     | Responsable Projet|
-                
-                **Seuils d'alerte:**
-                - Avertissement: Score ARI < 0.5
-                - Action immédiate: Score ARI < 0.3
-                
-                **Actions correctives:**
-                1. Réentraîner le modèle avec les données récentes
-                2. Réévaluer le nombre optimal de clusters
-                3. Investiguer les changements dans le comportement des clients
-                4. Mettre à jour les stratégies marketing en fonction des nouveaux segments
-                """)
 
 def perform_rfm_analysis(df):
     """Effectue l'analyse RFM"""
@@ -897,50 +874,6 @@ def perform_rfm_analysis(df):
     # Affichage des résultats
     st.subheader("Résultats de l'analyse RFM")
     safe_display_dataframe(rfm.head(10))
-    
-    # Visualisation
-    st.subheader("Visualisation des Segments RFM")
-    
-    # Distribution des segments
-    segment_counts = rfm['Segment'].value_counts().reset_index()
-    segment_counts.columns = ['Segment', 'Nombre de Clients']
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        fig1 = px.bar(
-            segment_counts,
-            x='Segment',
-            y='Nombre de Clients',
-            title="Répartition des Segments RFM"
-        )
-        st.plotly_chart(fig1, use_container_width=True)
-    
-    with col2:
-        fig2 = px.pie(
-            segment_counts,
-            names='Segment',
-            values='Nombre de Clients',
-            title="Distribution des Segments RFM"
-        )
-        st.plotly_chart(fig2, use_container_width=True)
-    
-    # Treemap
-    st.subheader("Treemap des Segments RFM")
-    plt.figure(figsize=(12, 8))
-    colors = ['#f94144', '#f3722c', '#f9c74f', '#90be6d', '#43aa8b',
-              '#577590', '#277da1', '#4d908e', '#f9844a', '#8ac926']
-    
-    squarify.plot(
-        sizes=segment_counts['Nombre de Clients'],
-        label=segment_counts['Segment'],
-        color=colors,
-        alpha=.9,
-        text_kwargs={'fontsize': 12, 'weight': 'bold'}
-    )
-    
-    plt.title("Segmentation RFM des Clients", fontsize=16)
-    plt.axis('off')
-    st.pyplot(plt)
     
     # Recommandations
     st.subheader("Recommandations par Segment")
