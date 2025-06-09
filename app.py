@@ -88,7 +88,7 @@ def clean_data(df):
         # Convertir en string puis en datetime
         df['InvoiceDate'] = df['InvoiceDate'].astype(str)
         
-        # Correction 1: Essayer plusieurs formats de date
+        
         try:
             df['InvoiceDate'] = pd.to_datetime(
                 df['InvoiceDate'], 
@@ -107,17 +107,17 @@ def clean_data(df):
         # Supprimer les dates invalides
         df = df.dropna(subset=['InvoiceDate'])
     
-    # Correction 2: Convertir les colonnes numériques problématiques
+    #  Convertir les colonnes numériques 
     numeric_cols = df.select_dtypes(include=[np.number]).columns
     for col in numeric_cols:
         # Convertir en float pour éviter les problèmes de type
         df[col] = pd.to_numeric(df[col], errors='coerce')
     
-    # Ajout du montant total si possible
+    # Ajout du montant total 
     if 'Quantity' in df.columns and 'UnitPrice' in df.columns:
         df['Montant'] = df['Quantity'] * df['UnitPrice']
     
-    # Correction 3: Supprimer les valeurs infinies
+    #  Supprimer les valeurs infinies
     df = df.replace([np.inf, -np.inf], np.nan).dropna()
     
     # Réinitialiser les index
@@ -205,7 +205,7 @@ def show_descriptive_stats(df):
             # Filtrer uniquement les colonnes numériques et exclure CustomerID
             num_cols = df.select_dtypes(include=np.number).columns
             
-            # CORRECTION: Exclure CustomerID des statistiques numériques
+            #  Exclure CustomerID des statistiques numériques
             if 'CustomerID' in num_cols:
                 num_cols = num_cols.drop('CustomerID')
             
@@ -374,7 +374,7 @@ def perform_fpgrowth_analysis(df):
             # Limiter aux colonnes les plus fréquentes si trop nombreuses
             if len(basket.columns) > 10:
                 st.warning("Trop de produits ({}). Utilisation des 10 plus fréquents.".format(len(basket.columns)))
-                top_products = basket.sum().sort_values(ascending=False).head(100).index
+                top_products = basket.sum().sort_values(ascending=False).head(10).index
                 basket = basket[top_products]
         except Exception as e:
             st.error(f"Erreur lors de la préparation des données: {e}")
@@ -382,9 +382,9 @@ def perform_fpgrowth_analysis(df):
     
     col1, col2 = st.columns(2)
     with col1:
-        min_support = st.slider("Support minimum", 0.01, 0.5, 0.01, 0.01, key="min_support")
+        min_support = st.slider("Support minimum", 0.0001, 1, 0.01, 0.01, key="min_support")
     with col2:
-        min_lift = st.slider("Lift minimum", 1.0, 10.0, 1.0, 0.1, key="min_lift")
+        min_lift = st.slider("Lift minimum", 0.001, 10.0, 1.0, 0.1, key="min_lift")
     
     if st.button("Exécuter FP-Growth"):
         with st.spinner("Calcul des règles d'association..."):
@@ -468,7 +468,7 @@ def perform_kmeans_analysis(df):
     
     # Préparation des données RFM
     if 'InvoiceDate' in df.columns and 'InvoiceNo' in df.columns and 'Montant' in df.columns:
-        # Convertir InvoiceDate en datetime si nécessaire
+        # Convertir InvoiceDate en datetime 
         if not pd.api.types.is_datetime64_any_dtype(df['InvoiceDate']):
             try:
                 df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
@@ -519,7 +519,7 @@ def perform_kmeans_analysis(df):
     
     if st.button("Trouver le nombre optimal de clusters"):
         with st.spinner("Calcul en cours..."):
-            wcss = []  # Within-Cluster Sum of Square
+            wcss = []  
             silhouette_scores = []
             
             for i in range(2, max_clusters + 1):
@@ -528,7 +528,7 @@ def perform_kmeans_analysis(df):
                     kmeans.fit(scaled_data)
                     wcss.append(kmeans.inertia_)
                     
-                    if i > 1:  # Silhouette nécessite au moins 2 clusters
+                    if i > 1:  
                         silhouette_scores.append(silhouette_score(scaled_data, kmeans.labels_))
                 except Exception as e:
                     st.error(f"Erreur avec {i} clusters: {e}")
@@ -755,7 +755,7 @@ def perform_kmeans_analysis(df):
                 st.pyplot(fig)
                 
                 # Interprétation et recommandations
-                st.subheader("Interprétation et Plan de Maintenance")
+                st.subheader("Interprétation ")
                 
                 # Analyse de la stabilité
                 if st.session_state.ARI_scores:
@@ -786,10 +786,11 @@ def perform_kmeans_analysis(df):
                     """, unsafe_allow_html=True)
                 else:
                     st.warning("Aucun score ARI disponible")
-
+                
+               
 def perform_rfm_analysis(df):
     """Effectue l'analyse RFM"""
-    # Vérification des colonnes nécessaires
+    # Vérification des colonnes 
     required_cols = ['CustomerID', 'InvoiceDate', 'InvoiceNo', 'Montant']
     if 'Montant' not in df.columns:
         if 'Quantity' in df.columns and 'UnitPrice' in df.columns:
@@ -804,7 +805,7 @@ def perform_rfm_analysis(df):
         st.error(f"Colonnes manquantes pour l'analyse RFM: {', '.join(missing_cols)}")
         return
     
-    # Convertir InvoiceDate en datetime si nécessaire
+    # Convertir InvoiceDate en datetime 
     if 'InvoiceDate' in df.columns and not pd.api.types.is_datetime64_any_dtype(df['InvoiceDate']):
         try:
             df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
@@ -874,6 +875,50 @@ def perform_rfm_analysis(df):
     # Affichage des résultats
     st.subheader("Résultats de l'analyse RFM")
     safe_display_dataframe(rfm.head(10))
+    
+    # Visualisation
+    st.subheader("Visualisation des Segments RFM")
+    
+    # Distribution des segments
+    segment_counts = rfm['Segment'].value_counts().reset_index()
+    segment_counts.columns = ['Segment', 'Nombre de Clients']
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        fig1 = px.bar(
+            segment_counts,
+            x='Segment',
+            y='Nombre de Clients',
+            title="Répartition des Segments RFM"
+        )
+        st.plotly_chart(fig1, use_container_width=True)
+    
+    with col2:
+        fig2 = px.pie(
+            segment_counts,
+            names='Segment',
+            values='Nombre de Clients',
+            title="Distribution des Segments RFM"
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+    
+    # Treemap
+    st.subheader("Treemap des Segments RFM")
+    plt.figure(figsize=(12, 8))
+    colors = ['#f94144', '#f3722c', '#f9c74f', '#90be6d', '#43aa8b',
+              '#577590', '#277da1', '#4d908e', '#f9844a', '#8ac926']
+    
+    squarify.plot(
+        sizes=segment_counts['Nombre de Clients'],
+        label=segment_counts['Segment'],
+        color=colors,
+        alpha=.9,
+        text_kwargs={'fontsize': 12, 'weight': 'bold'}
+    )
+    
+    plt.title("Segmentation RFM des Clients", fontsize=16)
+    plt.axis('off')
+    st.pyplot(plt)
     
     # Recommandations
     st.subheader("Recommandations par Segment")
@@ -1029,7 +1074,7 @@ def main():
         3. Explorez les différentes analyses disponibles
         
         <div class="big-font">
-        ⬅️ <strong>Commencez par télécharger vos données dans la barre latérale !</strong>
+        ⬅️ <strong>Commencez par uploader vos données dans la barre latérale !</strong>
         </div>
         """, unsafe_allow_html=True)
 
