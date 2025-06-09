@@ -2,6 +2,25 @@ import streamlit as st
 from PIL import Image
 import requests
 from io import BytesIO
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from datetime import datetime, timedelta
+import plotly.express as px
+import plotly.graph_objects as go
+import mlxtend
+import squarify      
+from mlxtend.frequent_patterns import fpgrowth, association_rules
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score, adjusted_rand_score
+from sklearn.decomposition import PCA
+from sklearn import metrics
+import warnings
+
+# Ignorer les warnings
+warnings.filterwarnings("ignore")
 
 # Configuration de la page 
 st.set_page_config(
@@ -25,28 +44,7 @@ window.onerror = function(message, source, lineno, colno, error) {
 </script>
 """, height=0)
 
-# Import des bibliothèques
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from datetime import datetime, timedelta
-import plotly.express as px
-import plotly.graph_objects as go
-import mlxtend
-import squarify      
-from mlxtend.frequent_patterns import fpgrowth, association_rules
-from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score, adjusted_rand_score
-from sklearn.decomposition import PCA
-from sklearn import metrics
-import warnings
 
-# Ignorer les warnings
-warnings.filterwarnings("ignore")
-
-# Fonctions utilitaires
 def load_data(uploaded_file):
     """Charge les données depuis un fichier uploadé"""
     try:
@@ -83,11 +81,10 @@ def clean_data(df):
     # Suppression des valeurs manquantes restantes
     df = df.dropna()
     
-   
+    # SOLUTION DEFINITIVE POUR LES DATES
     if 'InvoiceDate' in df.columns:
         # Convertir en string puis en datetime
         df['InvoiceDate'] = df['InvoiceDate'].astype(str)
-        
         
         try:
             df['InvoiceDate'] = pd.to_datetime(
@@ -96,7 +93,7 @@ def clean_data(df):
                 infer_datetime_format=True
             )
         except:
-           
+            # Si échec, essayer manuellement les formats communs
             for fmt in ['%Y-%m-%d %H:%M:%S', '%d/%m/%Y %H:%M', '%m/%d/%Y %H:%M']:
                 try:
                     df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'], format=fmt, errors='coerce')
@@ -371,7 +368,7 @@ def perform_fpgrowth_analysis(df):
             # Supprimer les colonnes avec des noms manquants
             basket = basket.loc[:, ~basket.columns.isin([np.nan, None, ''])]
             
-            # Limiter aux colonnes les plus fréquentes 
+            # Limiter aux colonnes les plus fréquentes si trop nombreuses
             if len(basket.columns) > 10:
                 st.warning("Trop de produits ({}). Utilisation des 10 plus fréquents.".format(len(basket.columns)))
                 top_products = basket.sum().sort_values(ascending=False).head(10).index
@@ -382,7 +379,7 @@ def perform_fpgrowth_analysis(df):
     
     col1, col2 = st.columns(2)
     with col1:
-        
+        # Correction du type pour le slider
         min_support = st.slider("Support minimum", 0.0001, 1.0, 0.01, 0.01, key="min_support")
     with col2:
         min_lift = st.slider("Lift minimum", 0.001, 10.0, 1.0, 0.1, key="min_lift")
@@ -629,165 +626,185 @@ def perform_kmeans_analysis(df):
                 st.markdown(f"- Fréquence moyenne: {frequence_moy:.1f} commandes")
                 st.markdown(f"- Montant moyen: {montant_moy:.1f} €")
                 st.markdown("---")
+    
+    # ===========================================
+    # PARTIE CONTRAT DE MAINTENANCE (STABILITÉ TEMPORELLE)
+    # ===========================================
+    st.subheader("Contrat de Maintenance: Étude de Stabilité Temporelle")
+    
+    # Vérification des données temporelles
+    if 'InvoiceDate' not in df.columns:
+        st.warning("La colonne 'InvoiceDate' est nécessaire pour l'étude de stabilité temporelle.")
+        return
+    
+    st.markdown("""
+    ### Objectif
+    Évaluer la stabilité du modèle de clustering au fil du temps en comparant les résultats 
+    sur différentes périodes temporelles à l'aide de l'Adjusted Rand Index (ARI).
+    """)
+    
+    # Fonctions pour l'étude de stabilité
+    def echantillonnage(df, n, pas=30, duree=180):
+        date_min = df['InvoiceDate'].min()
+        date_min = date_min + timedelta(days=pas * (n-1))
+        date_max = date_min + timedelta(days=duree)
+        
+        sample_df = df[(df['InvoiceDate'] >= date_min) & 
+                    (df['InvoiceDate'] < date_max)].copy()
+        
+        st.info(f"Échantillon {n}: {sample_df.shape[0]} lignes ({date_min.strftime('%Y-%m-%d')} au {date_max.strftime('%Y-%m-%d')})")
+        return sample_df
+
+    def prepare_data(df):
+        if 'Montant' not in df.columns:
+            if 'Quantity' in df.columns and 'UnitPrice' in df.columns:
+                df['Montant'] = df['Quantity'] * df['UnitPrice']
+            else:
+                st.error("Impossible de calculer le montant")
+                return None
+        
+        derniere_date = df['InvoiceDate'].max() + timedelta(days=1)
+        
+        rfm = df.groupby('CustomerID').agg({
+            'InvoiceDate': lambda x: (derniere_date - x.max()).days,
+            'InvoiceNo': 'nunique',
+            'Montant': 'sum'
+        }).rename(columns={
+            'InvoiceDate': 'Recence',
+            'InvoiceNo': 'Frequence',
+            'Montant': 'MontantTotal'
+        })
+        return rfm
+
+    if st.button("Lancer l'étude de stabilité temporelle", key="stability_study"):
+        with st.spinner("Création des échantillons temporels..."):
+            # Création des échantillons
+            samples = {}
+            for n in range(1, 10):
+                sample_df = echantillonnage(df, n)
+                sample_rfm = prepare_data(sample_df)
+                if sample_rfm is not None:
+                    samples[f"B{n-1}"] = sample_rfm
             
-            # ===========================================
-            # PARTIE CONTRAT DE MAINTENANCE (STABILITÉ TEMPORELLE)
-            # ===========================================
-            st.subheader("Contrat de Maintenance: Étude de Stabilité Temporelle")
-            
-            # Vérification des données temporelles
-            if 'InvoiceDate' not in df.columns:
-                st.warning("La colonne 'InvoiceDate' est nécessaire pour l'étude de stabilité temporelle.")
+            if not samples:
+                st.error("Aucun échantillon valide créé")
                 return
             
-            st.markdown("""
-            ### Objectif
-            Évaluer la stabilité du modèle de clustering au fil du temps en comparant les résultats 
-            sur différentes périodes temporelles à l'aide de l'Adjusted Rand Index (ARI).
-            """)
+            st.session_state.samples = samples
+            st.success(f"{len(samples)} échantillons temporels créés avec succès!")
+        
+        # Préparation du modèle de référence
+        with st.spinner("Création du modèle de référence..."):
+            scaler_ref = StandardScaler()
+            B0_scaled = scaler_ref.fit_transform(samples["B0"])
+            model0 = KMeans(n_clusters=n_clusters, random_state=0, n_init=10)
+            model0.fit(B0_scaled)
+            st.session_state.model0 = model0
+            st.session_state.scaler_ref = scaler_ref
+        
+        # Fonction d'évaluation
+        def entrainer_modele(data, modele_reference, scaler_ref):
+            data_scaled = scaler_ref.transform(data)
+            nouveau_modele = KMeans(n_clusters=n_clusters, random_state=0, n_init=10)
+            nouveau_modele.fit(data_scaled)
+            labels_ref = modele_reference.predict(scaler_ref.transform(data))
+            labels_nouv = nouveau_modele.labels_
+            ari = adjusted_rand_score(labels_ref, labels_nouv)
+            return ari
+        
+        # Calcul des scores ARI
+        with st.spinner("Calcul des scores de stabilité..."):
+            ARI_scores = []
+            sample_names = sorted(st.session_state.samples.keys())
             
-            # Fonctions pour l'étude de stabilité
-            def echantillonnage(df, n, pas=30, duree=180):
-                date_min = df['InvoiceDate'].min()
-                date_min = date_min + timedelta(days=pas * (n-1))
-                date_max = date_min + timedelta(days=duree)
-                
-                sample_df = df[(df['InvoiceDate'] >= date_min) & 
-                            (df['InvoiceDate'] < date_max)].copy()
-                
-                st.info(f"Échantillon {n}: {sample_df.shape[0]} lignes ({date_min.strftime('%Y-%m-%d')} au {date_max.strftime('%Y-%m-%d')})")
-                return sample_df
-
-            def prepare_data(df):
-                if 'Montant' not in df.columns:
-                    if 'Quantity' in df.columns and 'UnitPrice' in df.columns:
-                        df['Montant'] = df['Quantity'] * df['UnitPrice']
-                    else:
-                        st.error("Impossible de calculer le montant")
-                        return None
-                
-                derniere_date = df['InvoiceDate'].max() + timedelta(days=1)
-                
-                rfm = df.groupby('CustomerID').agg({
-                    'InvoiceDate': lambda x: (derniere_date - x.max()).days,
-                    'InvoiceNo': 'nunique',
-                    'Montant': 'sum'
-                }).rename(columns={
-                    'InvoiceDate': 'Recence',
-                    'InvoiceNo': 'Frequence',
-                    'Montant': 'MontantTotal'
-                })
-                return rfm
-
-            if st.button("Lancer l'étude de stabilité temporelle"):
-                with st.spinner("Création des échantillons temporels..."):
-                    # Création des échantillons
-                    samples = {}
-                    for n in range(1, 10):
-                        sample_df = echantillonnage(df, n)
-                        sample_rfm = prepare_data(sample_df)
-                        if sample_rfm is not None:
-                            samples[f"B{n-1}"] = sample_rfm
-                    
-                    if not samples:
-                        st.error("Aucun échantillon valide créé")
-                        return
-                    
-                    st.session_state.samples = samples
-                    st.success(f"{len(samples)} échantillons temporels créés avec succès!")
-                
-                # Préparation du modèle de référence
-                with st.spinner("Création du modèle de référence..."):
-                    scaler_ref = StandardScaler()
-                    B0_scaled = scaler_ref.fit_transform(samples["B0"])
-                    model0 = KMeans(n_clusters=n_clusters, random_state=0, n_init=10)
-                    model0.fit(B0_scaled)
-                    st.session_state.model0 = model0
-                    st.session_state.scaler_ref = scaler_ref
-                
-                # Fonction d'évaluation
-                def entrainer_modele(data, modele_reference, scaler_ref):
-                    data_scaled = scaler_ref.transform(data)
-                    nouveau_modele = KMeans(n_clusters=n_clusters, random_state=0, n_init=10)
-                    nouveau_modele.fit(data_scaled)
-                    labels_ref = modele_reference.predict(scaler_ref.transform(data))
-                    labels_nouv = nouveau_modele.labels_
-                    ari = adjusted_rand_score(labels_ref, labels_nouv)
-                    return ari
-                
-                # Calcul des scores ARI
-                with st.spinner("Calcul des scores de stabilité..."):
-                    ARI_scores = []
-                    sample_names = sorted(st.session_state.samples.keys())
-                    
-                    for i, name in enumerate(sample_names[1:], start=1):  # Commencer à B1
-                        ari = entrainer_modele(
-                            st.session_state.samples[name], 
-                            st.session_state.model0, 
-                            st.session_state.scaler_ref
-                        )
-                        ARI_scores.append(ari)
-                        st.write(f"Échantillon B{i}: ARI = {ari:.4f}")
-                
-                st.session_state.ARI_scores = ARI_scores
+            for i, name in enumerate(sample_names[1:], start=1):  # Commencer à B1
+                ari = entrainer_modele(
+                    st.session_state.samples[name], 
+                    st.session_state.model0, 
+                    st.session_state.scaler_ref
+                )
+                ARI_scores.append(ari)
+                st.write(f"Échantillon B{i}: ARI = {ari:.4f}")
+        
+        st.session_state.ARI_scores = ARI_scores
+    
+    # Affichage des résultats de stabilité
+    if 'ARI_scores' in st.session_state:
+        st.subheader("Résultats de l'étude de stabilité")
+        
+        # Tableau des scores
+        results_df = pd.DataFrame({
+            'Période': [f"B{i}" for i in range(1, len(st.session_state.ARI_scores)+1)],
+            'Score ARI': st.session_state.ARI_scores
+        })
+        safe_display_dataframe(results_df)
+        
+       
+        st.subheader("Évolution du Score ARI")
+        
+        # Configuration du style
+        sns.set(style="whitegrid", rc={'figure.figsize': (10, 6)})
+        
+        # Création du graphique
+        plt.figure(figsize=(10, 6))
+        periods = list(range(2, 2*len(st.session_state.ARI_scores)+1, 2))
+        
+        # Tracé de la courbe
+        ax = sns.lineplot(
+            x=periods, 
+            y=st.session_state.ARI_scores,
+            marker='o',
+            markersize=8,
+            linewidth=2
+        )
+        
+        # Ligne verticale à 6 semaines
+        ax.axvline(6, color='red', linestyle='--', label='Seuil temporel')
+        
+        # Configuration des axes
+        plt.xticks(periods)
+        ax.set_xlabel('Semaines')
+        ax.set_ylabel('Score ARI')
+        ax.set_title('Évolution du Score ARI')
+        plt.legend()
+        
+        # Affichage dans Streamlit
+        st.pyplot(plt)
+        
+        
+        
+        # Interprétation et recommandations
+        st.subheader("Interprétation ")
+        
+        # Analyse de la stabilité
+        if st.session_state.ARI_scores:
+            min_ari = min(st.session_state.ARI_scores)
+            if min_ari > 0.7:
+                stability = "excellente"
+                recommendation = "Surveillance trimestrielle suffisante"
+                color = "green"
+            elif min_ari > 0.5:
+                stability = "bonne"
+                recommendation = "Surveillance mensuelle recommandée"
+                color = "orange"
+            elif min_ari > 0.3:
+                stability = "modérée"
+                recommendation = "Réévaluation bimestrielle nécessaire"
+                color = "orange"
+            else:
+                stability = "faible"
+                recommendation = "Réentraînement immédiat du modèle requis"
+                color = "red"
             
-            # Affichage des résultats de stabilité
-            if 'ARI_scores' in st.session_state:
-                st.subheader("Résultats de l'étude de stabilité")
-                
-                # Tableau des scores
-                results_df = pd.DataFrame({
-                    'Période': [f"B{i}" for i in range(1, len(st.session_state.ARI_scores)+1)],
-                    'Score ARI': st.session_state.ARI_scores
-                })
-                safe_display_dataframe(results_df)
-                
-                # Graphique d'évolution
-                fig, ax = plt.subplots(figsize=(10, 6))
-                ax.plot(range(1, len(st.session_state.ARI_scores)+1), st.session_state.ARI_scores, 'o-', markersize=8)
-                ax.axhline(y=0.5, color='r', linestyle='--', label='Seuil de stabilité')
-                ax.set_xlabel('Période')
-                ax.set_ylabel('Score ARI')
-                ax.set_title('Évolution de la Stabilité du Modèle')
-                ax.set_xticks(range(1, len(st.session_state.ARI_scores)+1))
-                ax.set_xticklabels([f"Période {i}" for i in range(1, len(st.session_state.ARI_scores)+1)])
-                ax.legend()
-                ax.grid(True)
-                st.pyplot(fig)
-                
-                # Interprétation et recommandations
-                st.subheader("Interprétation ")
-                
-                # Analyse de la stabilité
-                if st.session_state.ARI_scores:
-                    min_ari = min(st.session_state.ARI_scores)
-                    if min_ari > 0.7:
-                        stability = "excellente"
-                        recommendation = "Surveillance trimestrielle suffisante"
-                        color = "green"
-                    elif min_ari > 0.5:
-                        stability = "bonne"
-                        recommendation = "Surveillance mensuelle recommandée"
-                        color = "orange"
-                    elif min_ari > 0.3:
-                        stability = "modérée"
-                        recommendation = "Réévaluation bimestrielle nécessaire"
-                        color = "orange"
-                    else:
-                        stability = "faible"
-                        recommendation = "Réentraînement immédiat du modèle requis"
-                        color = "red"
-                    
-                    st.markdown(f"""
-                    <div style="border-left: 4px solid {color}; padding: 0.5em 1em; background-color: #f8f9fa;">
-                        <h4>Évaluation de la stabilité: <span style="color:{color};">{stability}</span></h4>
-                        <p>Score ARI minimum: {min_ari:.4f}</p>
-                        <p><strong>Recommandation:</strong> {recommendation}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.warning("Aucun score ARI disponible")
-                
+            st.markdown(f"""
+            <div style="border-left: 4px solid {color}; padding: 0.5em 1em; background-color: #f8f9fa;">
+                <h4>Évaluation de la stabilité: <span style="color:{color};">{stability}</span></h4>
+                <p>Score ARI minimum: {min_ari:.4f}</p>
+                <p><strong>Recommandation:</strong> {recommendation}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.warning("Aucun score ARI disponible")
                
 def perform_rfm_analysis(df):
     """Effectue l'analyse RFM"""
@@ -1011,7 +1028,7 @@ def main():
                     st.success("Données nettoyées avec succès!")
                     st.session_state.df_clean = df_clean
                 
-                # Afficher les stats descriptives si données nettoyées
+                # Afficher les stats descriptives 
                 if 'df_clean' in st.session_state:
                     st.header("Données Après Nettoyage")
                     st.write(f"Dimensions: {st.session_state.df_clean.shape[0]} lignes, {st.session_state.df_clean.shape[1]} colonnes")
