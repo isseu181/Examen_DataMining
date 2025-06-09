@@ -83,7 +83,7 @@ def clean_data(df):
     # Suppression des valeurs manquantes restantes
     df = df.dropna()
     
-    # SOLUTION DEFINITIVE POUR LES DATES
+   
     if 'InvoiceDate' in df.columns:
         # Convertir en string puis en datetime
         df['InvoiceDate'] = df['InvoiceDate'].astype(str)
@@ -96,7 +96,7 @@ def clean_data(df):
                 infer_datetime_format=True
             )
         except:
-            # Si échec, essayer manuellement les formats communs
+           
             for fmt in ['%Y-%m-%d %H:%M:%S', '%d/%m/%Y %H:%M', '%m/%d/%Y %H:%M']:
                 try:
                     df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'], format=fmt, errors='coerce')
@@ -157,7 +157,7 @@ def global_stats(df):
     return pd.DataFrame(stats)
 
 def safe_display_dataframe(df, max_rows=10000):
-    """Affiche un DataFrame de manière sécurisée"""
+    """Affiche un DataFrame """
     if len(df) > max_rows:
         st.warning(f"Le DataFrame contient trop de lignes ({len(df)}). Affichage limité à {max_rows} lignes.")
         df = df.head(max_rows)
@@ -371,7 +371,7 @@ def perform_fpgrowth_analysis(df):
             # Supprimer les colonnes avec des noms manquants
             basket = basket.loc[:, ~basket.columns.isin([np.nan, None, ''])]
             
-            # Limiter aux colonnes les plus fréquentes si trop nombreuses
+            # Limiter aux colonnes les plus fréquentes 
             if len(basket.columns) > 10:
                 st.warning("Trop de produits ({}). Utilisation des 10 plus fréquents.".format(len(basket.columns)))
                 top_products = basket.sum().sort_values(ascending=False).head(10).index
@@ -382,7 +382,7 @@ def perform_fpgrowth_analysis(df):
     
     col1, col2 = st.columns(2)
     with col1:
-        # CORRECTION ICI : Changement de 1 à 1.0 pour résoudre l'erreur de type
+        
         min_support = st.slider("Support minimum", 0.0001, 1.0, 0.01, 0.01, key="min_support")
     with col2:
         min_lift = st.slider("Lift minimum", 0.001, 10.0, 1.0, 0.1, key="min_lift")
