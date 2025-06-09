@@ -382,7 +382,8 @@ def perform_fpgrowth_analysis(df):
     
     col1, col2 = st.columns(2)
     with col1:
-        min_support = st.slider("Support minimum", 0.0001, 1, 0.01, 0.01, key="min_support")
+        # CORRECTION ICI : Changement de 1 à 1.0 pour résoudre l'erreur de type
+        min_support = st.slider("Support minimum", 0.0001, 1.0, 0.01, 0.01, key="min_support")
     with col2:
         min_lift = st.slider("Lift minimum", 0.001, 10.0, 1.0, 0.1, key="min_lift")
     
